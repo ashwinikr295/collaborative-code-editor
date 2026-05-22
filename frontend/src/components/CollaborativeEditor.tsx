@@ -493,7 +493,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
               )}
               {!terminalState.isRunning && !terminalState.compilationError && !terminalState.stderr && !terminalState.stdout && (
                 <div className="terminal-placeholder">
-                  $ Click "Run Code" above to execute C++ code collaboratively...
+                  - Click "Run Code" above to execute code collaboratively...
                 </div>
               )}
               {terminalState.isRunning && !terminalState.stdout && !terminalState.compilationError && !terminalState.stderr && (

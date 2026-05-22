@@ -14,6 +14,22 @@ import * as Y from 'yjs';
 const execPromise = promisify(exec);
 const port = process.env.PORT || 1234;
 
+let useDocker = process.env.LITE_MODE !== 'true';
+
+// Detect if Docker is available and running
+if (useDocker) {
+  exec('docker ps', (err) => {
+    if (err) {
+      console.warn('[Execution Engine] Docker daemon not found or unreachable. Switching to Host-based Lite Mode execution.');
+      useDocker = false;
+    } else {
+      console.log('[Execution Engine] Docker daemon is running. Running in sandboxed mode.');
+    }
+  });
+} else {
+  console.log('[Execution Engine] LITE_MODE environment variable is active. Running in Host-based Lite Mode execution.');
+}
+
 // Initialize Express
 const app = express();
 app.use(cors());
@@ -81,17 +97,52 @@ app.post('/api/execute', async (req, res) => {
     await fs.writeFile(codeFile, code, 'utf-8');
     await fs.writeFile(inputFile, stdin, 'utf-8');
 
-    // Get absolute path and resolve it for Docker mount compatibility (forward slashes)
-    const hostTempPath = path.resolve(tempFolder).replace(/\\/g, '/');
+    let stdout: string;
+    let stderr: string;
+    let executionTime: number;
 
-    // Docker command with strict sandboxing and security flags
-    const dockerCmd = `docker run --rm --network none --memory="128m" --cpus="0.5" -v "${hostTempPath}:/app" -w /app ${dockerImage} sh -c "${runCmd}"`;
+    const startTime = performance.now();
 
     try {
-      // Execute the sandboxed Docker run with a 3-second timeout limit
-      const startTime = performance.now();
-      const { stdout, stderr } = await execPromise(dockerCmd, { timeout: 3000 });
-      const executionTime = Math.round(performance.now() - startTime);
+      if (useDocker) {
+        // Get absolute path and resolve it for Docker mount compatibility (forward slashes)
+        const hostTempPath = path.resolve(tempFolder).replace(/\\/g, '/');
+
+        // Docker command with strict sandboxing and security flags
+        const dockerCmd = `docker run --rm --network none --memory="128m" --cpus="0.5" -v "${hostTempPath}:/app" -w /app ${dockerImage} sh -c "${runCmd}"`;
+
+        const result = await execPromise(dockerCmd, { timeout: 5000 });
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } else {
+        // Host execution (Lite Mode) fallback
+        let hostCmd: string;
+        const isWin = process.platform === 'win32';
+        switch (language) {
+          case 'python':
+            const pythonBin = isWin ? 'python' : 'python3';
+            hostCmd = `${pythonBin} ${safeFilename} < input.txt`;
+            break;
+          case 'javascript':
+            hostCmd = `node ${safeFilename} < input.txt`;
+            break;
+          case 'cpp':
+          default:
+            const exeName = isWin ? 'main.exe' : './main';
+            const compileName = isWin ? 'main.exe' : 'main';
+            hostCmd = `g++ -o ${compileName} ${safeFilename} && ${exeName} < input.txt`;
+            break;
+        }
+
+        // Execute directly on the host in the specific tempFolder
+        const result = await execPromise(hostCmd, {
+          cwd: tempFolder,
+          timeout: 5000
+        });
+        stdout = result.stdout;
+        stderr = result.stderr;
+      }
+      executionTime = Math.round(performance.now() - startTime);
 
       return res.json({
         success: true,
@@ -101,13 +152,23 @@ app.post('/api/execute', async (req, res) => {
         executionTime,
       });
     } catch (execError: any) {
+      console.error('[Execution Engine Error Details]', execError);
       // Check if the binary was compiled to verify if error is compile-time or run-time
       let compiled = false;
-      try {
-        await fs.stat(path.join(tempFolder, 'main'));
+      if (language !== 'cpp') {
         compiled = true;
-      } catch {
-        compiled = false;
+      } else {
+        try {
+          await fs.stat(path.join(tempFolder, 'main'));
+          compiled = true;
+        } catch {
+          try {
+            await fs.stat(path.join(tempFolder, 'main.exe'));
+            compiled = true;
+          } catch {
+            compiled = false;
+          }
+        }
       }
 
       if (!compiled) {
@@ -127,7 +188,7 @@ app.post('/api/execute', async (req, res) => {
           compilationError: '',
           stdout: execError.stdout || '',
           stderr: isTimeout 
-            ? 'Execution timed out (3-second limit exceeded).' 
+            ? 'Execution timed out (5-second limit exceeded).' 
             : (execError.stderr || execError.message || 'Execution failed.'),
           executionTime: 0,
         });

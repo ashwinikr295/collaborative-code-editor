@@ -1,8 +1,8 @@
 # Start from a lightweight Linux image with Node.js 18 installed
 FROM node:18-alpine
 
-# Install Docker CLI so the Node.js app can execute 'docker run' commands
-RUN apk add --no-cache docker-cli
+# Install Docker CLI, compilers, and runtimes for host/sandbox execution
+RUN apk add --no-cache docker-cli g++ python3
 
 # Set the working directory inside the container
 WORKDIR /app
