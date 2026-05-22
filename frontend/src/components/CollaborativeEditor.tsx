@@ -101,8 +101,22 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
   const yDocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<WebsocketProvider | null>(null);
 
-  const handleEditorDidMount: OnMount = (editorInstance) => {
+  const handleEditorDidMount: OnMount = (editorInstance, monacoInstance) => {
     setEditor(editorInstance);
+    
+    // Force LF line endings on the initial model
+    const model = editorInstance.getModel();
+    if (model) {
+      model.setEOL(monacoInstance.editor.EndOfLineSequence.LF);
+    }
+
+    // Also force LF whenever the model changes (if a new model is loaded)
+    editorInstance.onDidChangeModel(() => {
+      const currentModel = editorInstance.getModel();
+      if (currentModel) {
+        currentModel.setEOL(monacoInstance.editor.EndOfLineSequence.LF);
+      }
+    });
   };
 
   const getLocalUsername = () => {
@@ -135,7 +149,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
       const code = model ? model.getValue() : '';
 
       // 2. Fetch execution API
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:1234';
+      let apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl || apiUrl.includes('localhost')) {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        apiUrl = `${protocol}//${hostname}:1234`;
+      }
       const response = await fetch(`${apiUrl}/api/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -208,6 +227,10 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
 
     if (normalize(currentText) === '' || normalize(currentText) === normalize(prevTemplate)) {
       editor.setValue(newTemplate);
+      const model = editor.getModel();
+      if (model) {
+        model.setEOL(0); // Enforce LF line endings (0 is EndOfLineSequence.LF)
+      }
     }
   }, [language, editor]);
 
@@ -222,8 +245,16 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
 
     if (!model) return;
 
+    // Enforce LF line endings to prevent desynchronization between different OS types
+    model.setEOL(0); // 0 corresponds to monaco.editor.EndOfLineSequence.LF
+
     // Connect to Yjs sync server using WebSocket provider
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:1234';
+    let wsUrl = import.meta.env.VITE_WS_URL;
+    if (!wsUrl || wsUrl.includes('localhost')) {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${hostname}:1234`;
+    }
     const provider = new WebsocketProvider(
       wsUrl,
       'test-room-1',
