@@ -18,7 +18,7 @@ let useDocker = process.env.LITE_MODE !== 'true';
 
 // Detect if Docker is available and running
 if (useDocker) {
-  exec('docker ps', (err) => {
+  exec('docker ps', { timeout: 2000 }, (err) => {
     if (err) {
       console.warn('[Execution Engine] Docker daemon not found or unreachable. Switching to Host-based Lite Mode execution.');
       useDocker = false;
@@ -44,7 +44,7 @@ fs.mkdir(tempDir, { recursive: true }).catch((err) => {
 
 // Root HTTP route to verify server status
 app.get('/', (req, res) => {
-  res.send('CoEdit Sync Server - WebSocket sync and C++ execution engine are active.\n');
+  res.send(`CoEdit Sync Server - WebSocket sync and C++ execution engine are active. (Execution Mode: ${useDocker ? 'Docker Sandbox' : 'Host-based Lite Mode'})\n`);
 });
 
 // POST Code Execution endpoint (Multi-language Docker Sandboxed)
