@@ -1,255 +1,368 @@
 import http from 'http';
 import { WebSocketServer } from 'ws';
-import { setupWSConnection, setPersistence } from 'y-websocket/bin/utils';
+import { setupWSConnection, setPersistence, docs } from 'y-websocket/bin/utils';
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs/promises';
 import path from 'path';
-import { exec } from 'child_process';
-import crypto from 'crypto';
-import { promisify } from 'util';
-import { LeveldbPersistence } from 'y-leveldb';
+import 'dotenv/config';
+import { MongodbPersistence } from 'y-mongodb-provider';
 import * as Y from 'yjs';
-
-const execPromise = promisify(exec);
-const port = process.env.PORT || 1234;
-
-let useDocker = process.env.LITE_MODE !== 'true';
-
-// Detect if Docker is available and running
-if (useDocker) {
-  exec('docker ps', { timeout: 2000 }, (err) => {
-    if (err) {
-      console.warn('[Execution Engine] Docker daemon not found or unreachable. Switching to Host-based Lite Mode execution.');
-      useDocker = false;
-    } else {
-      console.log('[Execution Engine] Docker daemon is running. Running in sandboxed mode.');
-    }
-  });
-} else {
-  console.log('[Execution Engine] LITE_MODE environment variable is active. Running in Host-based Lite Mode execution.');
-}
+import { QueueEvents } from 'bullmq';
+import { codeQueue, connection, initQueue, isOffline } from './queue.js';
+import { executeCode, checkDocker } from './executor.js';
+import { explainCode, autoFixCode, assistCode } from './ai.js';
+import { addExecutionLog, getExecutionLogs, getAdminStats } from './admin.js';
+import dns from 'dns/promises';
+import fs from 'fs';
 
 // Initialize Express
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const tempDir = path.join(process.cwd(), 'temp');
-
-// Ensure temp directory exists asynchronously
-fs.mkdir(tempDir, { recursive: true }).catch((err) => {
-  console.error('Failed to create temp directory:', err);
-});
+// Global persistence reference
+let mdbInstance: MongodbPersistence | null = null;
 
 // Root HTTP route to verify server status
 app.get('/', (req, res) => {
-  res.send(`CoEdit Sync Server - WebSocket sync and C++ execution engine are active. (Execution Mode: ${useDocker ? 'Docker Sandbox' : 'Host-based Lite Mode'})\n`);
+  res.send(`CoEdit Sync Server - WebSocket sync, Docker sandbox, and Gemini AI engine active.\n`);
 });
 
-// POST Code Execution endpoint (Multi-language Docker Sandboxed)
+function checkAdminAuth(req: express.Request, res: express.Response): boolean {
+  const adminKey = process.env.ADMIN_SECRET_KEY || 'admin123';
+  const reqKey = req.headers['x-admin-key'];
+  if (!reqKey || reqKey !== adminKey) {
+    res.status(401).json({ success: false, error: 'Unauthorized: Invalid or missing Admin Secret Key.' });
+    return false;
+  }
+  return true;
+}
+
+// Admin Stats Endpoint
+app.get('/api/admin/stats', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const stats = getAdminStats(docs.size, isOffline);
+  return res.json({ success: true, stats });
+});
+
+// Admin Execution Audit Logs Endpoint
+app.get('/api/admin/logs', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const logs = getExecutionLogs();
+  return res.json({ success: true, logs });
+});
+
+// AI Explanation endpoint
+app.post('/api/ai/explain', async (req, res) => {
+  const { code, language = 'cpp' } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing code payload.' });
+  }
+  const result = await explainCode(code, language);
+  return res.json(result);
+});
+
+// Agentic AI Auto-Fix endpoint
+app.post('/api/ai/autofix', async (req, res) => {
+  const { code, errorLog, language = 'cpp', stdin = '' } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing code payload.' });
+  }
+  const result = await autoFixCode(code, errorLog || '', language, stdin);
+  return res.json(result);
+});
+
+// AI Copilot Assist endpoint
+app.post('/api/ai/assist', async (req, res) => {
+  const { prompt, code, language = 'cpp' } = req.body;
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing prompt payload.' });
+  }
+  const result = await assistCode(prompt, code || '', language);
+  return res.json(result);
+});
+
+// Code execution endpoint
 app.post('/api/execute', async (req, res) => {
-  const { code, stdin = '', language = 'cpp', customFilename } = req.body;
+  const { code, stdin = '', language = 'cpp', customFilename, roomId = 'test-room-1' } = req.body;
   if (typeof code !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid code payload.' });
   }
 
-  // Determine file extension, Docker image, and run command based on language
-  let defaultFilename: string;
-  let dockerImage: string;
-  let runCmdTpl: (fn: string) => string;
-
-  switch (language) {
-    case 'python':
-      defaultFilename = 'main.py';
-      dockerImage = 'python:3.9-slim';
-      runCmdTpl = (fn) => `python ${fn} < input.txt`;
-      break;
-    case 'javascript':
-      defaultFilename = 'main.js';
-      dockerImage = 'node:18-alpine';
-      runCmdTpl = (fn) => `node ${fn} < input.txt`;
-      break;
-    case 'cpp':
-    default:
-      defaultFilename = 'main.cpp';
-      dockerImage = 'gcc';
-      runCmdTpl = (fn) => `g++ -o main ${fn} && ./main < input.txt`;
-      break;
-  }
-
-  // Strict sanitization: alphanumeric, dashes, underscores, and exactly one dot
-  const safeFilename = customFilename && /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(customFilename) 
-    ? customFilename 
-    : defaultFilename;
-
-  const runCmd = runCmdTpl(safeFilename);
-  const id = crypto.randomUUID();
-  const tempFolder = path.join(tempDir, `temp_${id}`);
-  const codeFile = path.join(tempFolder, safeFilename);
-  const inputFile = path.join(tempFolder, 'input.txt');
-
-  try {
-    // Create unique temp directory on the host
-    await fs.mkdir(tempFolder, { recursive: true });
-
-    // Write source code and standard input to the temp folder
-    await fs.writeFile(codeFile, code, 'utf-8');
-    await fs.writeFile(inputFile, stdin, 'utf-8');
-
-    let stdout: string;
-    let stderr: string;
-    let executionTime: number;
-
-    const startTime = performance.now();
-
+  if (isOffline) {
+    // Run execution locally/in-process
     try {
-      if (useDocker) {
-        // Get absolute path and resolve it for Docker mount compatibility (forward slashes)
-        const hostTempPath = path.resolve(tempFolder).replace(/\\/g, '/');
-
-        // Docker command with strict sandboxing and security flags
-        const dockerCmd = `docker run --rm --network none --memory="128m" --cpus="0.5" -v "${hostTempPath}:/app" -w /app ${dockerImage} sh -c "${runCmd}"`;
-
-        const result = await execPromise(dockerCmd, { timeout: 5000 });
-        stdout = result.stdout;
-        stderr = result.stderr;
-      } else {
-        // Host execution (Lite Mode) fallback
-        let hostCmd: string;
-        const isWin = process.platform === 'win32';
-        switch (language) {
-          case 'python':
-            const pythonBin = isWin ? 'python' : 'python3';
-            hostCmd = `${pythonBin} ${safeFilename} < input.txt`;
-            break;
-          case 'javascript':
-            hostCmd = `node ${safeFilename} < input.txt`;
-            break;
-          case 'cpp':
-          default:
-            const exeName = isWin ? 'main.exe' : './main';
-            const compileName = isWin ? 'main.exe' : 'main';
-            hostCmd = `g++ -o ${compileName} ${safeFilename} && ${exeName} < input.txt`;
-            break;
-        }
-
-        // Execute directly on the host in the specific tempFolder
-        const result = await execPromise(hostCmd, {
-          cwd: tempFolder,
-          timeout: 5000
-        });
-        stdout = result.stdout;
-        stderr = result.stderr;
-      }
-      executionTime = Math.round(performance.now() - startTime);
+      console.log(`[Queue] Local execution trigger for room: "${roomId}"`);
+      const jobId = Math.random().toString(36).substring(7);
+      
+      // Execute asynchronously in background (simulating queue processing)
+      runLocalExecution(jobId, roomId, code, stdin, language, customFilename);
 
       return res.json({
         success: true,
-        stdout,
-        stderr,
-        compilationError: '',
-        executionTime,
+        jobId: jobId,
       });
-    } catch (execError: any) {
-      console.error('[Execution Engine Error Details]', execError);
-      // Check if the binary was compiled to verify if error is compile-time or run-time
-      let compiled = false;
-      if (language !== 'cpp') {
-        compiled = true;
-      } else {
+    } catch (err: any) {
+      console.error('[Execution Error]', err);
+      return res.status(500).json({ error: 'Failed to start local execution.' });
+    }
+  } else {
+    try {
+      const job = await codeQueue!.add('execute', {
+        code,
+        stdin,
+        language,
+        customFilename,
+        roomId
+      });
+
+      console.log(`[Queue] Added execution job #${job.id} for room: "${roomId}"`);
+
+      return res.json({
+        success: true,
+        jobId: job.id,
+      });
+    } catch (err: any) {
+      console.error('[Queue Error]', err);
+      return res.status(500).json({ error: 'Failed to queue execution job.' });
+    }
+  }
+});
+
+async function runLocalExecution(
+  jobId: string,
+  roomId: string,
+  code: string,
+  stdin: string,
+  language: string,
+  customFilename?: string
+) {
+  try {
+    const result = await executeCode(code, stdin, language, customFilename);
+    console.log(`[Queue] Local execution job #${jobId} completed. Syncing results to room: "${roomId}"`);
+
+    // Log to admin execution audit trail
+    addExecutionLog({
+      roomId,
+      language,
+      executionTimeMs: result.executionTime ?? 0,
+      status: result.compilationError ? 'COMPILATION_ERROR' : (result.stderr ? 'RUNTIME_ERROR' : 'SUCCESS'),
+      stdout: result.stdout,
+      stderr: result.stderr,
+      compilationError: result.compilationError,
+    });
+
+    const yDoc = docs.get(roomId);
+    if (yDoc) {
+      const yMap = yDoc.getMap('terminal-logs');
+      yDoc.transact(() => {
+        yMap.set('isRunning', false);
+        yMap.set('stdout', result.stdout || '');
+        yMap.set('stderr', result.stderr || '');
+        yMap.set('compilationError', result.compilationError || '');
+        yMap.set('executionTime', result.executionTime ?? 0);
+      });
+    }
+  } catch (err: any) {
+    console.error(`[Queue] Local execution job #${jobId} failed:`, err);
+    const yDoc = docs.get(roomId);
+    if (yDoc) {
+      const yMap = yDoc.getMap('terminal-logs');
+      yDoc.transact(() => {
+        yMap.set('isRunning', false);
+        yMap.set('compilationError', `Local execution failed: ${err.message || err}`);
+      });
+    }
+  }
+}
+
+// Local storage persistence fallback
+function setupLocalPersistence() {
+  const dbDir = path.join(process.cwd(), 'temp', 'db');
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  setPersistence({
+    bindState: (docName, ydoc) => {
+      const filePath = path.join(dbDir, `${docName}.bin`);
+      if (fs.existsSync(filePath)) {
         try {
-          await fs.stat(path.join(tempFolder, 'main'));
-          compiled = true;
-        } catch {
-          try {
-            await fs.stat(path.join(tempFolder, 'main.exe'));
-            compiled = true;
-          } catch {
-            compiled = false;
-          }
+          const persistedState = fs.readFileSync(filePath);
+          Y.applyUpdate(ydoc, persistedState);
+          console.log(`[Local DB] Restored document state for room: "${docName}"`);
+        } catch (err) {
+          console.error(`[Local DB] Failed to read state for ${docName}:`, err);
         }
       }
 
-      if (!compiled) {
-        // Compilation failed; return standard compiler errors
-        return res.json({
-          success: false,
-          compilationError: execError.stderr || execError.message || 'Compilation failed.',
-          stdout: '',
-          stderr: '',
-          executionTime: 0,
+      ydoc.on('update', (update: Uint8Array) => {
+        try {
+          let merged: Uint8Array;
+          if (fs.existsSync(filePath)) {
+            const existing = fs.readFileSync(filePath);
+            merged = Y.mergeUpdates([existing, update]);
+          } else {
+            merged = update;
+          }
+          fs.writeFileSync(filePath, merged);
+        } catch (err) {
+          console.error(`[Local DB] Failed to store update for ${docName}:`, err);
+        }
+      });
+      return Promise.resolve();
+    },
+    writeState: (docName, ydoc) => {
+      return Promise.resolve();
+    }
+  });
+}
+
+// Start everything inside async start function
+async function start() {
+  // 0. Check Docker status
+  await checkDocker();
+
+  // 1. Init queue (checks DNS internally)
+  await initQueue();
+
+  // 2. Init state persistence
+  const mongoUrl = process.env.MONGODB_URI;
+  let useMongo = false;
+  if (!isOffline && mongoUrl) {
+    try {
+      const url = new URL(mongoUrl);
+      await dns.lookup(url.hostname);
+      
+      mdbInstance = new MongodbPersistence(mongoUrl, {
+        collectionName: 'yjs-updates',
+        flushSize: 100,
+        multipleCollections: true
+      });
+
+      setPersistence({
+        bindState: async (docName, ydoc) => {
+          if (mdbInstance) {
+            const persistedYdoc = await mdbInstance.getYDoc(docName);
+            const newUpdates = Y.encodeStateAsUpdate(ydoc);
+            mdbInstance.storeUpdate(docName, newUpdates);
+            Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc));
+          }
+          ydoc.on('update', async (update: Uint8Array) => {
+            if (mdbInstance) {
+              mdbInstance.storeUpdate(docName, update);
+            }
+          });
+        },
+        writeState: async (docName, ydoc) => {
+          return Promise.resolve();
+        }
+      });
+      useMongo = true;
+      console.log('[Database] MongoDB Atlas state persistence initialized successfully.');
+    } catch (err) {
+      console.warn('[Database] MongoDB Atlas unreachable. Using local file storage.');
+    }
+  }
+
+  if (!useMongo) {
+    setupLocalPersistence();
+    console.log('[Database] Local file-based state persistence initialized (documents will persist in temp/db).');
+  }
+
+  // 3. Init QueueEvents if online
+  if (!isOffline && connection) {
+    const queueEvents = new QueueEvents('code-execution', { connection: connection as any });
+
+    queueEvents.on('completed', async ({ jobId, returnvalue }) => {
+      const job = await codeQueue!.getJob(jobId);
+      if (!job) return;
+
+      const { roomId } = job.data;
+      const result = typeof returnvalue === 'string' ? JSON.parse(returnvalue) : returnvalue;
+
+      console.log(`[Queue] Job #${jobId} completed. Syncing results to room: "${roomId}"`);
+
+      const yDoc = docs.get(roomId);
+      if (yDoc) {
+        const yMap = yDoc.getMap('terminal-logs');
+        yDoc.transact(() => {
+          yMap.set('isRunning', false);
+          yMap.set('stdout', result.stdout || '');
+          yMap.set('stderr', result.stderr || '');
+          yMap.set('compilationError', result.compilationError || '');
+          yMap.set('executionTime', result.executionTime ?? 0);
         });
+      }
+    });
+
+    queueEvents.on('failed', async ({ jobId, failedReason }) => {
+      const job = await codeQueue!.getJob(jobId);
+      if (!job) return;
+
+      const { roomId } = job.data;
+      console.error(`[Queue Error] Job #${jobId} failed:`, failedReason);
+
+      const yDoc = docs.get(roomId);
+      if (yDoc) {
+        const yMap = yDoc.getMap('terminal-logs');
+        yDoc.transact(() => {
+          yMap.set('isRunning', false);
+          yMap.set('compilationError', `Execution engine failed: ${failedReason}`);
+        });
+      }
+    });
+  }
+
+  // 4. Start Server
+  const port = process.env.PORT || 1234;
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  });
+
+  wss.on('connection', async (ws, req) => {
+    const roomName = (req.url || '').slice(1).split('?')[0] || 'default';
+    console.log(`[Connection] Client connected to room: "${roomName}"`);
+
+    // Ensure document state is fully loaded from MongoDB or local file BEFORE initiating WebSocket handshake
+    if (!docs.has(roomName)) {
+      const ydoc = docs.get(roomName)!;
+      if (mdbInstance) {
+        try {
+          const persistedYdoc = await mdbInstance.getYDoc(roomName);
+          Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc));
+          console.log(`[Database] Synchronously pre-loaded MongoDB state for room: "${roomName}"`);
+        } catch (err) {
+          console.error(`[Database] Failed to pre-load MongoDB state for "${roomName}":`, err);
+        }
       } else {
-        // Compilation succeeded but run crashed or timed out
-        const isTimeout = execError.killed || execError.signal === 'SIGTERM';
-        return res.json({
-          success: false,
-          compilationError: '',
-          stdout: execError.stdout || '',
-          stderr: isTimeout 
-            ? 'Execution timed out (5-second limit exceeded).' 
-            : (execError.stderr || execError.message || 'Execution failed.'),
-          executionTime: 0,
-        });
+        const filePath = path.join(process.cwd(), 'temp', 'db', `${roomName}.bin`);
+        if (fs.existsSync(filePath)) {
+          try {
+            const persistedState = fs.readFileSync(filePath);
+            Y.applyUpdate(ydoc, persistedState);
+            console.log(`[Local DB] Pre-loaded file state for room: "${roomName}"`);
+          } catch (err) {
+            console.error(`[Local DB] Failed to pre-load file state for "${roomName}":`, err);
+          }
+        }
       }
     }
-  } catch (err: any) {
-    console.error('[Execution Error]', err);
-    return res.status(500).json({ error: err.message });
-  } finally {
-    // Delete files in background after a slight delay to release any Windows file handles
-    setTimeout(async () => {
-      try {
-        await fs.rm(tempFolder, { recursive: true, force: true }).catch(() => {});
-      } catch (cleanupError) {
-        console.error('Failed to cleanup sandboxed directory:', cleanupError);
-      }
-    }, 1000);
-  }
-});
 
-// Setup LevelDB persistence
-const storageDir = path.join(process.cwd(), 'storage');
-const ldb = new LeveldbPersistence(storageDir);
-
-setPersistence({
-  bindState: async (docName, ydoc) => {
-    const persistedYdoc = await ldb.getYDoc(docName);
-    const newUpdates = Y.encodeStateAsUpdate(ydoc);
-    ldb.storeUpdate(docName, newUpdates);
-    Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc));
-    ydoc.on('update', (update: Uint8Array) => {
-      ldb.storeUpdate(docName, update);
-    });
-  },
-  writeState: async (docName, ydoc) => {
-    // This is called when all clients leave the document
-    return Promise.resolve();
-  }
-});
-
-// Create HTTP server wrapping the Express app
-const server = http.createServer(app);
-
-// Create WebSocket server attached to HTTP server
-const wss = new WebSocketServer({ noServer: true });
-
-// Handle protocol upgrades
-server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
+    setupWSConnection(ws, req);
   });
-});
 
-// Yjs connection handler
-wss.on('connection', (ws, req) => {
-  const roomName = (req.url || '').slice(1).split('?')[0] || 'default';
-  console.log(`[Connection] Client connected to room: "${roomName}"`);
-  setupWSConnection(ws, req);
-});
+  server.listen(port, () => {
+    console.log(`[CoEdit] Combined server is running on http://localhost:${port}`);
+    console.log(`[CoEdit] WebSockets available at ws://localhost:${port}/{room_name}`);
+  });
+}
 
-server.listen(port, () => {
-  console.log(`[CoEdit] Combined server is running on http://localhost:${port}`);
-  console.log(`[CoEdit] WebSockets available at ws://localhost:${port}/{room_name}`);
+start().catch((err) => {
+  console.error('[CoEdit Server] Failed to start:', err);
 });

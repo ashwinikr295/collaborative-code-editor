@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # Install Docker CLI, compilers, and runtimes for host/sandbox execution
-RUN apk add --no-cache docker-cli g++ python3
+RUN apk add --no-cache docker-cli g++ python3 openjdk17
 
 # Set the working directory inside the container
 WORKDIR /app

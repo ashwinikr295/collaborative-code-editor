@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CoEdit System Architecture Notes</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Outfit & Fira Code Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Marked Markdown Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Mermaid.js Flowchart Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    pre, code {
+      font-family: 'Fira Code', monospace;
+    }
+    .markdown-body h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 0.5rem;
+      margin-top: 2rem;
+      margin-bottom: 1.5rem;
+      color: #0f172a;
+    }
+    .markdown-body h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.25rem;
+      margin-top: 1.75rem;
+      margin-bottom: 1rem;
+      color: #1e293b;
+    }
+    .markdown-body h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      color: #334155;
+    }
+    .markdown-body p {
+      margin-bottom: 1rem;
+      line-height: 1.75;
+      color: #475569;
+    }
+    .markdown-body ul, .markdown-body ol {
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+      color: #475569;
+    }
+    .markdown-body ul {
+      list-style-type: disc;
+    }
+    .markdown-body ol {
+      list-style-type: decimal;
+    }
+    .markdown-body li {
+      margin-bottom: 0.5rem;
+    }
+    .markdown-body pre {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+    .markdown-body code {
+      background-color: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      font-size: 0.9em;
+      color: #0f172a;
+    }
+    .markdown-body pre code {
+      background-color: transparent;
+      padding: 0;
+      font-size: 0.95em;
+      color: inherit;
+    }
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+    }
+    .markdown-body th, .markdown-body td {
+      border: 1px solid #cbd5e1;
+      padding: 0.75rem;
+      text-align: left;
+    }
+    .markdown-body th {
+      background-color: #f1f5f9;
+      font-weight: 600;
+    }
+    .markdown-body blockquote {
+      border-left: 4px solid #3b82f6;
+      background-color: #eff6ff;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0.25rem;
+      color: #1e3a8a;
+    }
+    .markdown-body hr {
+      border: 0;
+      border-top: 1px solid #cbd5e1;
+      margin: 2rem 0;
+    }
+    .mermaid-container {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: #fafafa;
+      border: 1px dashed #ddd;
+      border-radius: 8px;
+    }
+    @media print {
+      body {
+        background-color: white;
+        padding: 0;
+      }
+      .no-print {
+        display: none;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-8 max-w-4xl mx-auto">
+  <div id="content" class="bg-white shadow-sm border rounded-xl p-10 markdown-body">
+    <!-- Rendered Markdown will go here -->
+  </div>
+
+  <script>
+    // Config raw markdown source
+    const rawMarkdown = `# CoEdit - System Architecture & Technical Interview Study Guide
+
+This guide breaks down the architecture, data flows, and technical details of the **CoEdit** collaborative editor. It is structured to help you study the codebase and explain the system design to an interviewer.
+
+---
+
+## 1. High-Level Architecture Flowchart
+
+This flowchart illustrates how the frontend client, backend server, persistence layer, and execution engine interact:
+
+\`\`\`mermaid
+graph TD
+    %% Define styles
+    classDef client fill:#3b82f6,stroke:#1d4ed8,color:#ffffff
+    classDef server fill:#a855f7,stroke:#6b21a8,color:#ffffff
+    classDef db fill:#eab308,stroke:#a16207,color:#ffffff
+    classDef execution fill:#f43f5e,stroke:#be123c,color:#ffffff
+
+    %% Nodes
+    subgraph Frontend [Frontend - React / Vercel]
+        ClientA["Client A (Laptop - Chrome/Win)"]:::client
+        ClientB["Client B (Phone - Safari/iOS)"]:::client
+    end
+
+    subgraph Backend [Backend Service - Node.js Express & WS / Render]
+        WS_Server["WebSocket Server (y-websocket)"]:::server
+        Express_API["REST API (Express - /api/execute)"]:::server
+        LevelDB[("LevelDB Storage (y-leveldb)")]:::db
+        
+        subgraph ExecEngine [Execution Engine]
+            DockerSandbox["Docker Container GCC / Python / Node"]:::execution
+            HostLite["Host OS Execution Fallback (Lite Mode)"]:::execution
+        end
+    end
+
+    %% Client WS Sync
+    ClientA <-->|WS Connection / sync + awareness| WS_Server
+    ClientB <-->|WS Connection / sync + awareness| WS_Server
+    WS_Server <-->|Get/Store updates| LevelDB
+
+    %% Client Code Exec
+    ClientA -->|HTTP POST Code & stdin| Express_API
+    Express_API -->|Option 1: Sandboxed Run| DockerSandbox
+    Express_API -->|Option 2: Fallback Run| HostLite
+    DockerSandbox -->|Return stdout / stderr| Express_API
+    HostLite -->|Return stdout / stderr| Express_API
+    Express_API -->|Return results| ClientA
+\`\`\`
+
+---
+
+## 2. Real-Time Document Synchronization Flow
+
+CoEdit uses **Yjs** (a Conflict-free Replicated Data Type) and **WebSockets** to synchronize text and cursor presence.
+
+### The Text Synchronization Pipeline
+
+\`\`\`mermaid
+sequenceDiagram
+    autonumber
+    actor DevA as Developer A
+    participant MonA as Monaco Editor A
+    participant YjsA as Y.Doc A (Client)
+    participant WS as WebSocket Server
+    participant LDB as LevelDB (Server)
+    participant YjsB as Y.Doc B (Client)
+    participant MonB as Monaco Editor B
+    actor DevB as Developer B
+
+    DevA->>MonA: Types character "X"
+    MonA->>YjsA: Trigger change event (insert "X" at index)
+    Note over YjsA: CRDT calculates conflict-free update payload
+    YjsA->>WS: Sends binary update message (y-protocols/sync)
+    WS->>LDB: Store incremental update block
+    WS->>YjsB: Broadcast binary update to Peer B
+    Note over YjsB: Yjs merges update; resolves conflicts automatically
+    YjsB->>MonB: Emit delta event (insert "X" at index)
+    MonB->>DevB: Displays character "X" on screen
+\`\`\`
+
+---
+
+## 3. Code Execution Pipeline
+
+When a user clicks "Run Code", the execution is coordinated globally. The terminal output is synchronized in real-time so all users see the run status and output.
+
+\`\`\`mermaid
+sequenceDiagram
+    autonumber
+    actor User as User A
+    participant FE as Frontend Client A
+    participant YMap as Shared 'terminal-logs' Map
+    participant BE as Express API Server
+    participant RUN as Execution Sandbox (Docker / Host)
+    participant Peer as Frontend Client B (Peer)
+
+    User->>FE: Clicks "Run Code"
+    FE->>YMap: Set isRunning = true, runBy = "User A"
+    Note over YMap: State updates globally via WebSocket
+    YMap-->>Peer: Visual loader shows "User A is running..."
+    
+    FE->>BE: POST /api/execute { code, stdin, language }
+    Note over BE: Writes temp code file and input.txt
+    
+    alt Docker is active (Default)
+        BE->>RUN: Runs docker container with memory, CPU limits, no network
+    else Docker is offline (Lite Mode Fallback)
+        BE->>RUN: Executes code directly on host OS inside folder with 5s timeout
+    end
+    
+    RUN-->>BE: Captures stdout, stderr, or compilation errors
+    Note over BE: Cleans up temp folder
+    BE-->>FE: Return execution JSON payload
+    
+    FE->>YMap: Write results (stdout, stderr, runtime) and set isRunning = false
+    Note over YMap: State updates globally via WebSocket
+    YMap-->>User: Outputs print to terminal panel
+    YMap-->>Peer: Outputs print to terminal panel; loader hides
+\`\`\`
+
+---
+
+## 4. Key Architectural Topics (For Interviews)
+
+Use these explanations to demonstrate deep technical understanding during interviews:
+
+### 1. Conflict-Free Replicated Data Types (CRDTs) vs. Operational Transformation (OT)
+* **What CoEdit uses**: Yjs (a high-performance CRDT library).
+* **Comparison**:
+  * **Operational Transformation (OT)** (used by Google Docs) requires a central server to coordinate, re-sequence, and rewrite operation indexes (e.g. shifts caused by concurrent edits) before broadcasting them. It is complex to implement and highly dependent on a stateful central server.
+  * **CRDTs** (used by CoEdit) treat document changes as mathematically commutable operations. Changes can be applied in any order, and all clients are guaranteed to converge on the exact same state without needing a central coordinator to resolve conflicts. This makes Yjs resilient, fast, and capable of working in peer-to-peer or server-client setups.
+
+### 2. LevelDB Persistence (\`y-leveldb\`)
+* **How it works**: Yjs documents are composed of structural update fragments. Instead of serializing and saving the entire string to a database on every keystroke, the server uses \`y-leveldb\` to store updates **incrementally**.
+* **Startup**: When a client creates a room connection, \`bindState\` loads the document state history from LevelDB, applies it to the room's server-side \`Y.Doc\`, and updates the client. Future incremental updates are stored in LevelDB on the fly.
+
+### 3. Sandboxed Code Execution
+* **Security & Isolation**: Arbitrary code execution is dangerous. In production, CoEdit compiles and executes code inside standard Docker images (\`gcc\` for C++, \`python\` for Python, \`node\` for JS).
+* **Resource Limits**:
+  * \`--memory="128m"\`: Caps container memory to 128MB.
+  * \`--cpus="0.5"\`: Prevents CPU hogging by restricting the run to half a CPU core.
+  * \`--network none\`: Prevents malicious code from calling out to external servers (securing the backend host from DDoS/scraping scripts).
+  * **Timeout**: Node.js monitors the run and terminates it after a maximum threshold (5 seconds) to prevent infinite loops.
+
+### 4. PaaS "Lite Mode" Fallback (The Render Fix)
+* **Problem**: Cloud PaaS platforms like Render's free tier run backend instances inside their own virtualization containers, which blocks access to a local Docker daemon (\`Cannot connect to the Docker daemon\`).
+* **Solution**: Implemented a **Host-based Lite Mode**. On startup, the server tests Docker availability (\`docker ps\`). If unreachable, it changes mode dynamically. Code is executed directly on the host using \`child_process.exec\` inside isolated, short-lived temporary directories, protected by strict script timeouts.
+
+### 5. Cross-Device Line Endings Desync (The Windows vs. Mobile Fix)
+* **The Bug**:
+  1. Windows Monaco Editor inserts CRLF (\`\\r\\n\`) line endings. Mobile and UNIX browsers insert LF (\`\\n\`).
+  2. When a Windows user typed newlines, Yjs sent CRLF to the mobile client.
+  3. The mobile Monaco Editor automatically normalized these newlines to LF.
+  4. The client's \`MonacoBinding\` interpreted this normalization as a manual edit deleting all \`\\r\` characters, and propagated this deletion back to Yjs.
+  5. The Windows client received the deletions, applied them, but Windows Monaco immediately normalized the LFs back to CRLFs, triggering an insertion event back to mobile.
+  6. This infinite loop crashed/froze the Monaco-Yjs text sync, while the independent WS awareness protocol (user counts, cursors) remained unaffected.
+* **The Fix**: Standardized all editors by calling \`model.setEOL(monacoInstance.editor.EndOfLineSequence.LF)\` during mount, model updates, and value resets. This forces Monaco on Windows to output LF newlines, matching mobile devices and preserving sync index stability.
+`;
+
+    // Set custom renderer to convert code blocks of language 'mermaid' into custom HTML containers
+    const renderer = new marked.Renderer();
+    const originalCodeRenderer = renderer.code.bind(renderer);
+    renderer.code = function(code, language, isEscaped) {
+      if (typeof code === 'object') {
+        language = code.lang;
+        code = code.text;
+      }
+      if (language === 'mermaid') {
+        return '<div class="mermaid-container"><pre class="mermaid">' + code + '</pre></div>';
+      }
+      return originalCodeRenderer({ text: code, lang: language });
+    };
+
+    marked.setOptions({ renderer });
+    document.getElementById('content').innerHTML = marked.parse(rawMarkdown);
+
+    // Initialize Mermaid and trigger rendering
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: { useWidth: 100 }
+    });
+  </script>
+</body>
+</html>
