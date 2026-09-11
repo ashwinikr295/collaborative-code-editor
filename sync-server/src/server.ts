@@ -85,7 +85,7 @@ app.post('/api/ai/assist', async (req, res) => {
 
 // Code execution endpoint
 app.post('/api/execute', async (req, res) => {
-  const { code, stdin = '', language = 'cpp', customFilename, roomId = 'test-room-1' } = req.body;
+  const { code, stdin = '', language = 'cpp', customFilename, roomId = 'test-room-1', sync = false } = req.body;
   if (typeof code !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid code payload.' });
   }
@@ -93,16 +93,67 @@ app.post('/api/execute', async (req, res) => {
   if (isOffline) {
     // Run execution locally/in-process
     try {
-      console.log(`[Queue] Local execution trigger for room: "${roomId}"`);
+      console.log(`[Queue] Local execution trigger for room: "${roomId}" (sync=${sync})`);
       const jobId = Math.random().toString(36).substring(7);
-      
-      // Execute asynchronously in background (simulating queue processing)
-      runLocalExecution(jobId, roomId, code, stdin, language, customFilename);
 
-      return res.json({
-        success: true,
-        jobId: jobId,
-      });
+      if (sync) {
+        // Synchronous mode: execute and return result directly via HTTP
+        try {
+          const result = await executeCode(code, stdin, language, customFilename);
+          console.log(`[Queue] Sync execution job #${jobId} completed for room: "${roomId}"`);
+
+          addExecutionLog({
+            roomId,
+            language,
+            executionTimeMs: result.executionTime ?? 0,
+            status: result.compilationError ? 'COMPILATION_ERROR' : (result.stderr ? 'RUNTIME_ERROR' : 'SUCCESS'),
+            stdout: result.stdout,
+            stderr: result.stderr,
+            compilationError: result.compilationError,
+          });
+
+          // Also try to update Yjs doc if available
+          const yDoc = docs.get(roomId);
+          if (yDoc) {
+            const yMap = yDoc.getMap('terminal-logs');
+            yDoc.transact(() => {
+              yMap.set('isRunning', false);
+              yMap.set('stdout', result.stdout || '');
+              yMap.set('stderr', result.stderr || '');
+              yMap.set('compilationError', result.compilationError || '');
+              yMap.set('executionTime', result.executionTime ?? 0);
+            });
+          }
+
+          return res.json({
+            success: true,
+            jobId,
+            done: true,
+            stdout: result.stdout || '',
+            stderr: result.stderr || '',
+            compilationError: result.compilationError || '',
+            executionTime: result.executionTime ?? 0,
+          });
+        } catch (execErr: any) {
+          console.error(`[Queue] Sync execution job #${jobId} failed:`, execErr);
+          return res.json({
+            success: false,
+            jobId,
+            done: true,
+            stdout: '',
+            stderr: '',
+            compilationError: `Execution failed: ${execErr.message || execErr}`,
+            executionTime: 0,
+          });
+        }
+      } else {
+        // Async mode: fire-and-forget, results come via Yjs WebSocket
+        runLocalExecution(jobId, roomId, code, stdin, language, customFilename);
+        return res.json({
+          success: true,
+          jobId: jobId,
+        });
+      }
     } catch (err: any) {
       console.error('[Execution Error]', err);
       return res.status(500).json({ error: 'Failed to start local execution.' });

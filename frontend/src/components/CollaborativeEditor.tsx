@@ -327,7 +327,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
         apiUrl = `${protocol}//${hostname}:1234`;
       }
 
-      // POST request to trigger the execution engine
+      // POST request to trigger the execution engine (sync mode for direct results)
       const response = await fetch(`${apiUrl}/api/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -336,7 +336,8 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
           stdin: stdinInput, 
           language, 
           customFilename: filename,
-          roomId: roomId // Dynamic room identity for decoupled queue routing
+          roomId: roomId, // Dynamic room identity for decoupled queue routing
+          sync: true       // Request synchronous execution — results returned in HTTP response
         }),
       });
 
@@ -346,6 +347,17 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
 
       const result = await response.json();
       console.log(`[Execution] Job successfully queued with ID: ${result.jobId}`);
+
+      // If server returned results directly (sync mode), update Yjs doc from frontend
+      if (result.done) {
+        yDoc.transact(() => {
+          yMap.set('isRunning', false);
+          yMap.set('stdout', result.stdout || '');
+          yMap.set('stderr', result.stderr || '');
+          yMap.set('compilationError', result.compilationError || '');
+          yMap.set('executionTime', result.executionTime ?? 0);
+        });
+      }
     } catch (err: any) {
       console.error('Error executing code:', err);
       // In case of a server connection failure, reset execution state and broadcast error
