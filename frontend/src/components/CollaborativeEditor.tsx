@@ -627,19 +627,19 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
       {/* Main Workspace Layout */}
       <main className="editor-main">
         {/* Left Sidebar */}
-        <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-4 text-sm font-sans select-none text-slate-400">
+        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 text-sm font-sans select-none text-slate-600 shadow-sm">
           <div className="flex flex-col gap-6">
             
             {/* Workspace / Files Explorer Section */}
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 px-2 flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-2 flex items-center justify-between">
                 <span>Workspace</span>
-                <Code className="w-3.5 h-3.5 text-slate-500" />
+                <Code className="w-3.5 h-3.5 text-slate-400" />
               </div>
               <ul className="flex flex-col gap-1">
-                <li className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-indigo-500/10 text-indigo-200 border border-indigo-500/20 font-medium">
+                <li className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-medium">
                   {/* File SVG Icon */}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-600">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                   {/* Editable filename input */}
@@ -647,7 +647,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                     type="text" 
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
-                    className="bg-transparent border border-transparent hover:border-slate-700/60 focus:border-indigo-500/30 focus:bg-slate-900/60 outline-none text-xs text-slate-200 px-1 py-0.5 rounded transition-all duration-150 w-full"
+                    className="bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white outline-none text-xs text-slate-800 px-1 py-0.5 rounded transition-all duration-150 w-full font-medium"
                   />
                 </li>
               </ul>
@@ -655,13 +655,13 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
 
             {/* Collaborators Section */}
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 px-2 flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-2 flex items-center justify-between">
                 <span>Collaborators</span>
-                <span className="bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">{activeUsers.length}</span>
+                <span className="bg-indigo-50 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full font-semibold">{activeUsers.length}</span>
               </div>
               <ul className="flex flex-col gap-1.5 px-1 max-h-48 overflow-y-auto">
                 {activeUsers.map((user) => (
-                  <li key={user.clientId} className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-slate-900/40 text-slate-300 transition-colors duration-150">
+                  <li key={user.clientId} className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-slate-100/70 text-slate-700 transition-colors duration-150">
                     <div 
                       className="w-2 h-2 rounded-full shadow-sm"
                       style={{ backgroundColor: user.color, boxShadow: `0 0 6px ${user.color}` }}
@@ -678,10 +678,10 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
           <div className="flex flex-col gap-4 mt-auto">
             
             {/* Utility Buttons */}
-            <div className="flex flex-col gap-2 border-t border-slate-800/60 pt-4">
+            <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
               <button 
                 onClick={handleDownloadCode}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-800 hover:border-slate-700 transition-all duration-150 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-xs font-semibold text-slate-700 border border-slate-200 transition-all duration-150 cursor-pointer"
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -691,7 +691,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
               
               <button 
                 onClick={handleLeaveRoom}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-950/20 hover:bg-rose-950/40 text-xs font-semibold text-rose-300 border border-rose-900/30 hover:border-rose-900/50 transition-all duration-150 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-600 border border-rose-200 transition-all duration-150 cursor-pointer"
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -701,12 +701,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
             </div>
 
             {/* Social Links */}
-            <div className="flex gap-4 justify-center border-t border-slate-800/40 pt-3">
-              <a href="https://github.com/ashwinikr295" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-indigo-400 transition-colors duration-150 flex items-center gap-1 text-xs font-medium">
+            <div className="flex gap-4 justify-center border-t border-slate-200 pt-3">
+              <a href="https://github.com/ashwinikr295" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-indigo-600 transition-colors duration-150 flex items-center gap-1 text-xs font-medium">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .33.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 GitHub
               </a>
-              <a href="https://www.linkedin.com/in/ashwini-kumar-6928a527a/" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-indigo-400 transition-colors duration-150 flex items-center gap-1 text-xs font-medium">
+              <a href="https://www.linkedin.com/in/ashwini-kumar-6928a527a/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-indigo-600 transition-colors duration-150 flex items-center gap-1 text-xs font-medium">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.924 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
                 LinkedIn
               </a>
@@ -737,7 +737,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                 <select 
                   value={language} 
                   onChange={(e) => handleLanguageChange(e.target.value)}
-                  style={{ marginRight: '8px', padding: '6px', borderRadius: '4px', backgroundColor: '#1f2937', color: '#f3f4f6', border: '1px solid #374151', fontFamily: "'Outfit', sans-serif", cursor: 'pointer' }}
+                  style={{ marginRight: '8px', padding: '6px 12px', borderRadius: '6px', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', fontFamily: "'Outfit', sans-serif", fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
                 >
                   <option value="cpp">C++</option>
                   <option value="javascript">JS</option>
@@ -749,9 +749,9 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                 <button 
                   className="invite-btn"
                   onClick={handleCopyLink}
-                  style={{ marginRight: '8px', padding: '6px 12px', borderRadius: '4px', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", fontSize: '13px', fontWeight: 500, transition: 'background-color 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+                  style={{ marginRight: '8px', padding: '6px 12px', borderRadius: '6px', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", fontSize: '13px', fontWeight: 500, transition: 'background-color 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
                 >
                   {linkCopied ? 'Copied!' : 'Copy Invite Link'}
                 </button>
@@ -772,9 +772,9 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                   className="ai-copilot-btn"
                   onClick={() => setIsAIPanelOpen(!isAIPanelOpen)}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '4px',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
                     color: '#ffffff',
                     border: 'none',
                     cursor: 'pointer',
@@ -784,7 +784,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
                     transition: 'all 0.2s ease'
                   }}
                 >
@@ -803,7 +803,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({ langua
                   height="100%"
                   width="100%"
                   language={language}
-                  theme="vs-dark"
+                  theme="vs"
                   options={{
                     minimap: { enabled: true },
                     fontSize: 15,

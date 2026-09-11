@@ -207,12 +207,24 @@
 
 .file-item.active {
   background-color: var(--accent-light);
-  color: #c7d2fe;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--accent-color);
+  border: 1px solid rgba(79, 70, 229, 0.2);
 }
 
 .file-item.active svg {
-  color: #818cf8;
+  color: var(--accent-color);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-color);
+  background: var(--accent-light);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
 }
 
 .sidebar-info-card {
@@ -254,25 +266,26 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  background-color: #1e1e1e; /* Monaco editor background default */
-  transition: border-color 0.3s ease;
+  box-shadow: var(--shadow-md);
+  background-color: #ffffff;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .editor-wrapper:focus-within {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: rgba(79, 70, 229, 0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Remote Selection & Cursor Styles for Yjs Collaboration */
 .yRemoteSelection {
-  background-color: rgba(99, 102, 241, 0.25) !important;
+  background-color: rgba(79, 70, 229, 0.2) !important;
 }
 
 .yRemoteSelectionHead {
   position: absolute;
-  border-left: 2px solid #818cf8;
-  border-top: 2px solid #818cf8;
-  border-bottom: 2px solid #818cf8;
+  border-left: 2px solid #6366f1;
+  border-top: 2px solid #6366f1;
+  border-bottom: 2px solid #6366f1;
   height: 100%;
   box-sizing: border-box;
 }
@@ -306,7 +319,7 @@
 .active-users-count {
   font-size: 11px;
   background-color: var(--accent-light);
-  color: #a5b4fc;
+  color: var(--accent-color);
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
@@ -339,8 +352,8 @@
 }
 
 .user-pill.self {
-  border-color: rgba(99, 102, 241, 0.4);
-  background-color: rgba(99, 102, 241, 0.05);
+  border-color: rgba(79, 70, 229, 0.4);
+  background-color: rgba(79, 70, 229, 0.06);
 }
 
 .user-dot {
@@ -361,7 +374,7 @@
 .run-btn {
   display: inline-flex;
   align-items: center;
-  background-color: #10b981; /* Emerald-500 */
+  background-color: #10b981;
   color: #ffffff;
   border: none;
   padding: 6px 16px;
@@ -375,7 +388,7 @@
 }
 
 .run-btn:hover:not(:disabled) {
-  background-color: #059669; /* Emerald-600 */
+  background-color: #059669;
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
 }
@@ -385,8 +398,8 @@
 }
 
 .run-btn:disabled {
-  background-color: #064e3b;
-  color: #a7f3d0;
+  background-color: #a7f3d0;
+  color: #065f46;
   cursor: not-allowed;
   opacity: 0.8;
   box-shadow: none;
@@ -394,11 +407,11 @@
 
 /* Synced Terminal Panel Layout */
 .terminal-panel {
-  background-color: #080c14;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
 }
@@ -407,7 +420,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #0b0f19;
+  background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   padding: 8px 16px;
 }
@@ -438,12 +451,12 @@
 
 .terminal-status-pill.running {
   background-color: rgba(249, 115, 22, 0.15);
-  color: #fdba74;
+  color: #ea580c;
 }
 
 .terminal-status-pill.executed {
-  background-color: rgba(99, 102, 241, 0.15);
-  color: #c7d2fe;
+  background-color: var(--accent-light);
+  color: var(--accent-color);
 }
 
 .pulse-dot {
@@ -481,8 +494,8 @@
   font-size: 13px;
   line-height: 1.6;
   overflow-y: auto;
-  color: #e2e8f0;
-  background-color: #06090f;
+  color: #0f172a;
+  background-color: #fcfcfd;
 }
 
 .terminal-line {
@@ -491,7 +504,7 @@
 }
 
 .terminal-line.error {
-  color: #f43f5e; /* Rose-500 error color */
+  color: #e11d48;
 }
 
 .terminal-line.loading {
@@ -504,7 +517,7 @@
   white-space: pre-wrap;
   word-break: break-all;
   font-family: inherit;
-  color: #34d399; /* Emerald-400 output color */
+  color: #059669;
 }
 
 .terminal-placeholder {
@@ -530,8 +543,8 @@
 /* Standard Input Textarea */
 .stdin-textarea {
   flex: 1;
-  background-color: #06090f;
-  color: #e2e8f0;
+  background-color: #fcfcfd;
+  color: #0f172a;
   border: none;
   padding: 14px 18px;
   font-family: var(--font-mono);
@@ -555,9 +568,9 @@
   align-items: center;
   width: 100vw;
   min-height: 100vh;
-  background-color: #0b0f19;
+  background-color: var(--bg-primary);
   font-family: 'Outfit', sans-serif;
-  color: #f3f4f6;
+  color: var(--text-primary);
 }
 
 

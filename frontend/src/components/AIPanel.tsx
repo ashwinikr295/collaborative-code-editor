@@ -111,17 +111,17 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-[460px] max-w-full bg-slate-950/95 backdrop-blur-md border-l border-indigo-500/20 shadow-2xl z-50 flex flex-col font-sans transition-all duration-300">
+    <div className="fixed inset-y-0 right-0 w-[460px] max-w-full bg-white/95 backdrop-blur-md border-l border-slate-200 shadow-2xl z-50 flex flex-col font-sans transition-all duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-900/80">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
             <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <h3 className="font-semibold text-base text-slate-100 flex items-center gap-2">
+            <h3 className="font-semibold text-base text-slate-900 flex items-center gap-2">
               CoEditAI
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold tracking-wide">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 font-semibold tracking-wide">
                 AI Engine
               </span>
             </h3>
@@ -129,7 +129,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
         </div>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+          className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors"
           title="Close AI Copilot"
         >
           <X className="w-5 h-5" />
@@ -137,59 +137,63 @@ export const AIPanel: React.FC<AIPanelProps> = ({
       </div>
 
       {/* Main Body */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="flex-1 overflow-y-auto p-5 space-y-6">
         {/* Quick Actions */}
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 block">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 block">
             Quick Actions
           </span>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={handleExplain}
               disabled={loading}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer disabled:opacity-50"
+              className="flex flex-col items-start gap-1.5 px-4 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 hover:shadow-sm text-left transition-all cursor-pointer disabled:opacity-50"
             >
-              <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="truncate">Explain Code</span>
+              <HelpCircle className="w-5 h-5 text-indigo-600 shrink-0" />
+              <span className="text-sm font-semibold text-slate-800">Explain Code</span>
+              <span className="text-[11px] text-slate-500 leading-snug">Break down logic line by line</span>
             </button>
             <button
               onClick={() => handleSendPrompt("Optimize the code for time and space complexity O(n).")}
               disabled={loading}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer disabled:opacity-50"
+              className="flex flex-col items-start gap-1.5 px-4 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-sm text-left transition-all cursor-pointer disabled:opacity-50"
             >
-              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="truncate">Optimize O(n)</span>
+              <Zap className="w-5 h-5 text-amber-500 shrink-0" />
+              <span className="text-sm font-semibold text-slate-800">Optimize O(n)</span>
+              <span className="text-[11px] text-slate-500 leading-snug">Improve time & space complexity</span>
             </button>
             <button
               onClick={() => handleSendPrompt("Add thorough inline unit tests and comments.")}
               disabled={loading}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer disabled:opacity-50"
+              className="flex flex-col items-start gap-1.5 px-4 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 hover:shadow-sm text-left transition-all cursor-pointer disabled:opacity-50"
             >
-              <Code2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="truncate">Add Unit Tests</span>
+              <Code2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span className="text-sm font-semibold text-slate-800">Add Unit Tests</span>
+              <span className="text-[11px] text-slate-500 leading-snug">Generate tests & comments</span>
             </button>
             <button
               onClick={() => handleSendPrompt("Refactor this code to follow clean code best practices.")}
               disabled={loading}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer disabled:opacity-50"
+              className="flex flex-col items-start gap-1.5 px-4 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/50 hover:shadow-sm text-left transition-all cursor-pointer disabled:opacity-50"
             >
-              <Play className="w-4 h-4 text-cyan-400 shrink-0" />
-              <span className="truncate">Refactor</span>
+              <Play className="w-5 h-5 text-cyan-600 shrink-0" />
+              <span className="text-sm font-semibold text-slate-800">Refactor</span>
+              <span className="text-[11px] text-slate-500 leading-snug">Clean code best practices</span>
             </button>
           </div>
         </div>
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 flex items-center gap-3 text-indigo-200 text-xs font-medium animate-pulse">
-            <Sparkles className="w-4 h-4 text-indigo-400 spin shrink-0" />
+          <div className="p-5 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center gap-3 text-indigo-700 text-sm font-medium animate-pulse">
+            <Sparkles className="w-5 h-5 text-indigo-600 spin shrink-0" />
             <span>AI is analyzing your code workspace...</span>
           </div>
         )}
 
         {/* Error State */}
         {errorMsg && (
-          <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs leading-relaxed">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm leading-relaxed">
             {errorMsg}
           </div>
         )}
@@ -197,28 +201,28 @@ export const AIPanel: React.FC<AIPanelProps> = ({
         {/* AI Response Output */}
         {aiResponse && !loading && (
           <div className="space-y-3">
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 text-[13px] leading-relaxed space-y-2 max-h-[420px] overflow-y-auto">
-              <div className="font-semibold text-indigo-400 mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm leading-relaxed space-y-2 max-h-[50vh] overflow-y-auto">
+              <div className="font-semibold text-indigo-600 mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                <Sparkles className="w-4 h-4" />
                 Response:
               </div>
-              <div className="whitespace-pre-wrap font-sans text-slate-300 leading-relaxed">{aiResponse}</div>
+              <div className="whitespace-pre-wrap font-sans text-slate-700 leading-relaxed">{aiResponse}</div>
             </div>
 
             {/* Apply Suggested Code Action */}
             {suggestedCode && (
               <button
                 onClick={handleApplySuggestedCode}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
                 {applied ? (
                   <>
-                    <Check className="w-4 h-4 text-emerald-300" />
+                    <Check className="w-5 h-5 text-emerald-300" />
                     Applied to Room Editor!
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-5 h-5" />
                     Apply AI Code to Room Editor
                   </>
                 )}
@@ -226,10 +230,25 @@ export const AIPanel: React.FC<AIPanelProps> = ({
             )}
           </div>
         )}
+
+        {/* Empty State — shown when no response or loading */}
+        {!aiResponse && !loading && !errorMsg && (
+          <div className="flex flex-col items-center justify-center text-center py-10 px-6 gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+              <Sparkles className="w-7 h-7 text-indigo-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-1">Your AI Copilot is Ready</h4>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-[260px]">
+                Use a Quick Action above or type a prompt below to explain, optimize, debug, or generate code.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input Footer */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/90">
+      <div className="p-4 border-t border-slate-200 bg-slate-50">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -241,15 +260,15 @@ export const AIPanel: React.FC<AIPanelProps> = ({
             type="text"
             value={promptInput}
             onChange={(e) => setPromptInput(e.target.value)}
-            placeholder="Ask CoEditAI  to modify, debug, or write code..."
-            className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500/60 outline-none text-xs text-slate-200 px-3.5 py-2.5 rounded-xl transition-all"
+            placeholder="Ask CoEditAI to modify, debug, or write code..."
+            className="flex-1 bg-white border border-slate-200 focus:border-indigo-500 outline-none text-sm text-slate-900 px-4 py-3 rounded-xl transition-all placeholder-slate-400"
           />
           <button
             type="submit"
             disabled={loading || !promptInput.trim()}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-all cursor-pointer flex items-center justify-center"
+            className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all cursor-pointer flex items-center justify-center shadow-sm"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4.5 h-4.5" />
           </button>
         </form>
       </div>

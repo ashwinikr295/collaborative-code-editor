@@ -108,7 +108,7 @@ export async function executeCode(
         
         switch (language) {
           case 'python':
-            const pythonBin = isWin ? 'py' : 'python3';
+            const pythonBin = isWin ? 'python' : 'python3';
             hostCmd = `${pythonBin} ${safeFilename} < input.txt`;
             break;
           case 'javascript':
@@ -126,9 +126,10 @@ export async function executeCode(
             break;
         }
 
+        const timeoutMs = 15000;
         const result = await execPromise(hostCmd, {
           cwd: tempFolder,
-          timeout: 5000
+          timeout: timeoutMs
         });
         stdout = result.stdout;
         stderr = result.stderr;
@@ -167,6 +168,22 @@ export async function executeCode(
         }
       }
 
+      const rawErr = execError.stderr || execError.stdout || execError.message || '';
+      if (rawErr.includes('not recognized') || rawErr.includes('command not found') || rawErr.includes('Python was not found')) {
+        let missingTool = 'compiler/interpreter';
+        if (language === 'python') missingTool = 'Python (python/py)';
+        else if (language === 'java') missingTool = 'Java Development Kit (javac/java)';
+        else if (language === 'cpp') missingTool = 'C++ compiler (g++)';
+        
+        return {
+          success: false,
+          compilationError: `Host Environment Error: ${missingTool} is not installed or not in PATH on this server. Please install it or start Docker for sandboxed execution.`,
+          stdout: '',
+          stderr: '',
+          executionTime: 0,
+        };
+      }
+
       if (!compiled) {
         return {
           success: false,
@@ -182,7 +199,7 @@ export async function executeCode(
           compilationError: '',
           stdout: execError.stdout || '',
           stderr: isTimeout 
-            ? 'Execution timed out (5-second limit exceeded).' 
+            ? 'Execution timed out (15-second limit exceeded).' 
             : (execError.stderr || execError.message || 'Execution failed.'),
           executionTime: 0,
         };

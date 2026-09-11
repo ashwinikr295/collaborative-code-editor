@@ -3,12 +3,16 @@ import { Worker } from 'bullmq';
 import { connection, initQueue, isOffline } from './queue.js';
 import { executeCode, checkDocker } from './executor.js';
 
-async function start() {
+let workerInstance: Worker | null = null;
+
+export async function startWorker() {
+  if (workerInstance) return workerInstance;
+
   await initQueue();
   
   if (isOffline) {
     console.log('[Worker Engine] Running in local offline mode. In-process execution will handle jobs. Worker process is idle.');
-    return;
+    return null;
   }
 
   await checkDocker();
@@ -21,7 +25,7 @@ async function start() {
    * Executes compiling and running steps.
    * Concurrency is capped at 2 (it will process at most 2 jobs at the same time to prevent CPU choking).
    */
-  const worker = new Worker('code-execution', async (job) => {
+  workerInstance = new Worker('code-execution', async (job) => {
     const { code, stdin = '', language = 'cpp', customFilename } = job.data;
     console.log(`[Worker] Processing job #${job.id} for language: "${language}"`);
     return await executeCode(code, stdin, language, customFilename);
@@ -30,19 +34,25 @@ async function start() {
     concurrency: 2, // Process up to 2 execution jobs at the same time to limit CPU spikes
   });
 
-  worker.on('active', (job) => {
+  workerInstance.on('active', (job) => {
     console.log(`[Worker] Job #${job.id} has started execution.`);
   });
 
-  worker.on('completed', (job, result) => {
+  workerInstance.on('completed', (job, result) => {
     console.log(`[Worker] Job #${job.id} completed successfully.`);
   });
 
-  worker.on('failed', (job, err) => {
+  workerInstance.on('failed', (job, err) => {
     console.error(`[Worker] Job #${job?.id} failed with error:`, err);
+  });
+
+  return workerInstance;
+}
+
+// Auto-start if executed directly (e.g. via npm run worker)
+if (process.argv[1]?.includes('worker')) {
+  startWorker().catch(err => {
+    console.error('[Worker Engine] Initialization error:', err);
   });
 }
 
-start().catch(err => {
-  console.error('[Worker Engine] Initialization error:', err);
-});

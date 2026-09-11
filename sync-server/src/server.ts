@@ -10,6 +10,7 @@ import * as Y from 'yjs';
 import { QueueEvents } from 'bullmq';
 import { codeQueue, connection, initQueue, isOffline } from './queue.js';
 import { executeCode, checkDocker } from './executor.js';
+import { startWorker } from './worker.js';
 import { explainCode, autoFixCode, assistCode } from './ai.js';
 import { addExecutionLog, getExecutionLogs, getAdminStats } from './admin.js';
 import dns from 'dns/promises';
@@ -226,6 +227,10 @@ async function start() {
   // 1. Init queue (checks DNS internally)
   await initQueue();
 
+  if (!isOffline) {
+    await startWorker();
+  }
+
   // 2. Init state persistence
   const mongoUrl = process.env.MONGODB_URI;
   let useMongo = false;
@@ -325,35 +330,9 @@ async function start() {
     });
   });
 
-  wss.on('connection', async (ws, req) => {
+  wss.on('connection', (ws, req) => {
     const roomName = (req.url || '').slice(1).split('?')[0] || 'default';
     console.log(`[Connection] Client connected to room: "${roomName}"`);
-
-    // Ensure document state is fully loaded from MongoDB or local file BEFORE initiating WebSocket handshake
-    if (!docs.has(roomName)) {
-      const ydoc = docs.get(roomName)!;
-      if (mdbInstance) {
-        try {
-          const persistedYdoc = await mdbInstance.getYDoc(roomName);
-          Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc));
-          console.log(`[Database] Synchronously pre-loaded MongoDB state for room: "${roomName}"`);
-        } catch (err) {
-          console.error(`[Database] Failed to pre-load MongoDB state for "${roomName}":`, err);
-        }
-      } else {
-        const filePath = path.join(process.cwd(), 'temp', 'db', `${roomName}.bin`);
-        if (fs.existsSync(filePath)) {
-          try {
-            const persistedState = fs.readFileSync(filePath);
-            Y.applyUpdate(ydoc, persistedState);
-            console.log(`[Local DB] Pre-loaded file state for room: "${roomName}"`);
-          } catch (err) {
-            console.error(`[Local DB] Failed to pre-load file state for "${roomName}":`, err);
-          }
-        }
-      }
-    }
-
     setupWSConnection(ws, req);
   });
 
